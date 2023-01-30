@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2023_01_29_130557) do
+ActiveRecord::Schema[7.0].define(version: 2023_01_29_170102) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -25,7 +25,7 @@ ActiveRecord::Schema[7.0].define(version: 2023_01_29_130557) do
     t.index ["resource_type", "resource_id"], name: "index_active_admin_comments_on_resource"
   end
 
-  create_table "admin_users", force: :cascade do |t|
+  create_table "admin_users", id: :string, default: "de972f0e-f5eb-4180-9d62-d37fce2fe072", force: :cascade do |t|
     t.string "email", default: "", null: false
     t.string "encrypted_password", default: "", null: false
     t.string "reset_password_token"
@@ -45,7 +45,7 @@ ActiveRecord::Schema[7.0].define(version: 2023_01_29_130557) do
     t.datetime "updated_at", null: false
   end
 
-  create_table "users", force: :cascade do |t|
+  create_table "users", id: :string, default: "1ae2dd68-c905-41ad-86e8-5fe7bae9d052", force: :cascade do |t|
     t.string "email", default: "", null: false
     t.string "encrypted_password", default: "", null: false
     t.string "reset_password_token"

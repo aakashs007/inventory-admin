@@ -19,7 +19,7 @@ ActiveAdmin.register User do
   form do |f|
     f.inputs do
       f.input :email
-      # f.input :password
+      f.input :password
       if f.object.new_record? || current_admin_user.user_type.role == "super_admin"
         f.input :user_type_id, label: 'User role', as: 'select', collection: UserType.roles.keys.map{|x| [x, UserType.where(role: x)[0].id]}
       end      
