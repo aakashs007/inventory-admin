@@ -15,6 +15,11 @@ ActiveAdmin.register Product do
     actions
   end
 
+  filter :name
+  filter :supplier
+  filter :price
+  filter :vat
+
   form do |f|
     f.inputs do
       f.input :name

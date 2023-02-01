@@ -7,10 +7,12 @@ ActiveAdmin.register Order do
     id_column
     column :status
     column 'Sent from user' do |order|
-      link_to order.sent_from_user_id, admin_user_path(order.sent_from_user_id)
-    end    
+      link_to User.find(order.sent_from_user_id).email, admin_user_path(order.sent_from_user_id)
+    end
+    # column :user
+    # column :user
     column 'Sent to user' do |order|
-      link_to order.sent_to_user_id, admin_user_path(order.sent_to_user_id)
+      link_to User.find(order.sent_to_user_id).email, admin_user_path(order.sent_to_user_id)
     end
     column 'Parent Order' do |order|
       next "" if order.parent_order_id.nil?
