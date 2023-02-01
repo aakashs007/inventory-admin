@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2023_01_29_170102) do
+ActiveRecord::Schema[7.0].define(version: 2023_01_30_084541) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -25,7 +25,7 @@ ActiveRecord::Schema[7.0].define(version: 2023_01_29_170102) do
     t.index ["resource_type", "resource_id"], name: "index_active_admin_comments_on_resource"
   end
 
-  create_table "admin_users", id: :string, default: "de972f0e-f5eb-4180-9d62-d37fce2fe072", force: :cascade do |t|
+  create_table "admin_users", force: :cascade do |t|
     t.string "email", default: "", null: false
     t.string "encrypted_password", default: "", null: false
     t.string "reset_password_token"
@@ -39,13 +39,78 @@ ActiveRecord::Schema[7.0].define(version: 2023_01_29_170102) do
     t.index ["user_type_id"], name: "index_admin_users_on_user_type_id"
   end
 
+  create_table "order_products", force: :cascade do |t|
+    t.string "serial_number"
+    t.integer "order_id", null: false
+    t.integer "product_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["order_id"], name: "index_order_products_on_order_id"
+    t.index ["product_id"], name: "index_order_products_on_product_id"
+  end
+
+  create_table "orders", force: :cascade do |t|
+    t.integer "status"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.integer "sent_from_user_id", null: false
+    t.integer "sent_to_user_id", null: false
+    t.integer "parent_order_id"
+    t.index ["sent_from_user_id"], name: "index_orders_on_sent_from_user_id"
+    t.index ["sent_to_user_id"], name: "index_orders_on_sent_to_user_id"
+  end
+
+  create_table "products", force: :cascade do |t|
+    t.string "name"
+    t.boolean "active", default: true
+    t.string "slug"
+    t.float "price", default: 0.0
+    t.float "vat"
+    t.integer "supplier_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["supplier_id"], name: "index_products_on_supplier_id"
+  end
+
+  create_table "stocks", force: :cascade do |t|
+    t.integer "quantity", default: 0
+    t.integer "product_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["product_id"], name: "index_stocks_on_product_id"
+  end
+
+  create_table "suppliers", force: :cascade do |t|
+    t.string "name"
+    t.string "phone_number"
+    t.string "email"
+    t.text "address"
+    t.boolean "active", default: true
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "user_infos", force: :cascade do |t|
+    t.string "first_name"
+    t.string "last_name"
+    t.integer "age"
+    t.integer "latitude"
+    t.integer "longitude"
+    t.string "phone_number"
+    t.integer "gender"
+    t.integer "user_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_user_infos_on_user_id"
+  end
+
   create_table "user_types", force: :cascade do |t|
     t.integer "role"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
 
-  create_table "users", id: :string, default: "1ae2dd68-c905-41ad-86e8-5fe7bae9d052", force: :cascade do |t|
+  create_table "users", force: :cascade do |t|
     t.string "email", default: "", null: false
     t.string "encrypted_password", default: "", null: false
     t.string "reset_password_token"
@@ -62,5 +127,13 @@ ActiveRecord::Schema[7.0].define(version: 2023_01_29_170102) do
   end
 
   add_foreign_key "admin_users", "user_types", on_delete: :cascade
+  add_foreign_key "order_products", "orders"
+  add_foreign_key "order_products", "products"
+  add_foreign_key "orders", "orders", column: "parent_order_id"
+  add_foreign_key "orders", "users", column: "sent_from_user_id"
+  add_foreign_key "orders", "users", column: "sent_to_user_id"
+  add_foreign_key "products", "suppliers"
+  add_foreign_key "stocks", "products"
+  add_foreign_key "user_infos", "users"
   add_foreign_key "users", "user_types", on_delete: :cascade
 end
