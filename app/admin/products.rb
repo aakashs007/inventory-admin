@@ -11,6 +11,7 @@ ActiveAdmin.register Product do
     column :price
     column :vat
     column :supplier
+
     column :created_at
     actions
   end
@@ -27,8 +28,7 @@ ActiveAdmin.register Product do
       f.input :slug
       f.input :price
       f.input :vat
-      f.input :supplier
-      # f.input :supplier_id, label: 'Supplier', as: 'select', collection: Supplier.all.map{|x| [x.name, x.id]}
+      f.input :supplier_id, label: 'Supplier', as: 'select', collection: User.where(user_type_id: UserType.find_by(role: "supplier").id).map{|x| [x.email, x.id]}
     end
     f.actions
   end

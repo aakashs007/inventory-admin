@@ -1,6 +1,6 @@
 ActiveAdmin.register User do
 
-  permit_params :email, :remember_created_at, :password, :user_type_id
+  permit_params :email, :remember_created_at, :user_type_id, :warehouse_id, :password
 
 
   index do
@@ -11,7 +11,8 @@ ActiveAdmin.register User do
     # column :email_confirmed
     column 'User role' do | admin_user |
       admin_user.user_type.role if admin_user.user_type_id
-    end    
+    end
+    column :warehouse
     actions
   end
 
@@ -19,7 +20,10 @@ ActiveAdmin.register User do
   form do |f|
     f.inputs do
       f.input :email
-      f.input :password
+      f.input :warehouse, required: false
+      if f.object.new_record?
+        f.input :password
+      end
       if f.object.new_record? || current_admin_user.user_type.role == "super_admin"
         f.input :user_type_id, label: 'User role', as: 'select', collection: UserType.roles.keys.map{|x| [x, UserType.where(role: x)[0].id]}
       end      
@@ -31,6 +35,7 @@ ActiveAdmin.register User do
   show do
     attributes_table do
       row :email
+      row :warehouse
       row :user_type_id do |user|
         user.user_type.role
       end

@@ -8,5 +8,8 @@
 UserType.create!(role: 0)
 UserType.create!(role: 1)
 UserType.create!(role: 2)
+UserType.create!(role: 3)
+UserType.create!(role: 4)
+UserType.create!(role: 5)
 
 AdminUser.create!(email: 'admin@example.com', password: 'password', password_confirmation: 'password', user_type_id: 1) if Rails.env.development?
