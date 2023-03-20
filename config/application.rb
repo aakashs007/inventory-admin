@@ -27,6 +27,6 @@ module InventoryAdmin
                  methods: [:get, :post, :put, :patch, :delete, :options, :head],
                  expose: ['Authorization']
       end
-    end    
+    end
   end
 end

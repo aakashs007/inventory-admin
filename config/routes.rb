@@ -19,10 +19,19 @@ Rails.application.routes.draw do
       post "order", :to => "orders#create"
       put "order/:id", :to => "orders#update"
 
-      post "order/product", :to => "order_products#create"
-      get "order/product/:id", :to => "order_products#show"
-      get "order/product", :to => "order_products#index"
-      put "order/product/:id", :to => "order_products#update"
+      post "order_product", :to => "order_products#create"
+      get "order_product/:id", :to => "order_products#show"
+      get "order_product", :to => "order_products#index"
+      put "order_product/:id", :to => "order_products#update"
+      delete "order_product/:id", :to => "order_products#destroy"
+
+      get "product", :to => "products#index"
+
+      get "user", :to => "users#index"
+
+      get "warehouse", :to => "warehouse#index"
+
+      get "stock", :to => "stocks#index"
     end
   end
 end
