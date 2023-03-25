@@ -41,3 +41,8 @@ en:
       unable_to_update: "Unable to update!"
       not_found: "Entry not found!"
       unable_to_updated_product: "Unable to add/created product for orders not in created state!"
+      product_quanity_negative: "Cannot send order, your product quanity is in negative!"
+      unable_to_update_stocks: "Unable to update stocks"
+      return_order_invalid: "Return order possible only for installation, AMC and distribution type"
+      return_order_update_not_possible: "Unable to sent return order, if service number not provided"
+      return_order_product_create_failed: "Unable to clone return order products!"

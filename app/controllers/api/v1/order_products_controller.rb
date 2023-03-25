@@ -31,9 +31,10 @@ class Api::V1::OrderProductsController < ApplicationController
 
   def update
     order_product = OrderProduct.includes(:order).find(params[:id])
-    saved = order_product.update(update_permit_params)
 
-    raise ApiError.new(I18n.t("errors.msgs.unable_to_updated_product"), 401) if order_product.order.status != "created"
+    raise ApiError.new(I18n.t("errors.msgs.unable_to_updated_product"), 401) if order_product.order.status == "recieved"
+
+    saved = order_product.update(update_permit_params)
 
     if !saved.nil?
       response = order_product.as_json
@@ -90,7 +91,52 @@ class Api::V1::OrderProductsController < ApplicationController
     render json: { :success => false, :message => error.message }, :status => error.status    
   end
 
+  def clone_parent_order_products
+    return_order = Order.find(params[:id])
+    parent_order_id = return_order.parent_order_id
+    parent_order = Order.find(parent_order_id)
+
+    raise ApiError.new(I18n.t("errors.msgs.not_found"), 404) if parent_order.nil? || return_order.nil?
+    raise ApiError.new(I18n.t("errors.msgs.return_order_product_create_failed"), 404) if return_order.status != "created" || return_order.order_products.length > 0
+
+    parent_order.order_products.each do |order_product|
+      return_order_product = OrderProduct.new(
+        order_product.attributes.except('id', 'created_at', 'updated_at', 'order_id')
+      )
+      return_order_product.order_id = return_order.id
+
+      raise ApiError.new(I18n.t("errors.msgs.return_order_product_create_failed"), 404) if !return_order_product.save
+    end
+
+    response = get_current_order_products(return_order)
+    raise ApiError.new(I18n.t("errors.msgs.not_found"), 404) if response.nil?
+
+    render json: { :success => true, :data => response }, :status => 200
+  rescue ApiError => error
+    render json: { :success => false, :message => error.message }, :status => error.status
+  end
+
   private
+
+  def get_current_order_products(order)
+    if order.nil? 
+      return nil
+    end
+
+    response = order.order_products.map do |product|
+      product_hash = product.as_json
+
+      product_hash[:product] = product.product.as_json
+      product_hash[:product][:supplier] = product.product.supplier
+
+      product_hash.delete("product_id")
+      product_hash[:product].delete("supplier_id")
+
+      product_hash
+    end
+
+    response
+  end
 
   def permit_params
     params.require(:order_product).permit(:order_id, :product_id, :serial_number, :model_number, :quantity, :unit)

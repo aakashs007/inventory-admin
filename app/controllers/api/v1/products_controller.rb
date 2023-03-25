@@ -4,7 +4,7 @@ class Api::V1::ProductsController < ApplicationController
   before_action :authenticate_user!
 
   def index
-    products =  Product.where(active: true).select(:id, :name, :price, :vat)
+    products =  Product.where(active: true).select(:id, :name, :price, :vat, :unit)
 
     raise ApiError.new(I18n.t("errors.msgs.not_found"), 404) if products.nil?
 

@@ -9,6 +9,7 @@ class Api::V1::OrdersController < ApplicationController
     type = params[:type]
     limit = params[:limit] ? params[:limit].to_i : 10
     offset = params[:offset] ? params[:offset].to_i : 0
+    sort = params[:sort_by] ? params[:sort_by].to_sym : :desc
 
     response_orders = nil
     show_columns = exclude_columns(["updated_at"])
@@ -17,16 +18,22 @@ class Api::V1::OrdersController < ApplicationController
     and_columns = {}
     and_columns[:status] = Order.statuses[params[:status].to_sym] if params[:status].present?
 
+    user = User.includes(:warehouse).find(current_user.id)
+    user_role = user.user_type.role
+    is_warehouse_user = user_role === "warehouse_admin" || user_role == "warehouse_user"
+
     if type == "sent"
       or_columns["sent_from_user_id"] = current_user.id
     elsif type == "recieved"
       or_columns["sent_to_user_id"] = current_user.id
+      or_columns["issued_to_warehouse_id"] = user.warehouse.id if is_warehouse_user
     else
       or_columns["sent_from_user_id"] = current_user.id
       or_columns["sent_to_user_id"] = current_user.id
+      or_columns["issued_to_warehouse_id"] = user.warehouse.id if is_warehouse_user
     end
 
-    response_orders = fetch_orders(or_columns, and_columns, show_columns, limit, offset)
+    response_orders = fetch_orders(or_columns, and_columns, show_columns, limit, offset, sort)
 
     response = response_orders.map do |order|
       parse_order_response(order)
@@ -45,25 +52,11 @@ class Api::V1::OrdersController < ApplicationController
       order_stock_transfer(order)
     elsif order.order_type.to_sym == :installation # warehouse ===> site engineer
       order_installation(order)
+    elsif order.order_type.to_sym == :return # site engineer ===> warehouse
+      order = order_return(params[:parent_order_id])
     end
 
-    # if !order.parent_order_id.nil?
-    #   parent_order = Order.find(order.parent_order_id)
-
-    #   if parent_order.nil?
-    #     render json: { :success => false, :message => "Parent order does not exists" }, :status => 404
-    #     return
-    #   end
-
-    #   order.sent_to_user_id = parent_order.sent_from_user_id
-    # end
-
-    # if order.sent_from_user_id == order.sent_to_user_id
-    #   raise ApiError.new("Cannot return order to yourself!", 401)
-    #   return
-    # end
-
-    if order.save
+    if order && order.save
       render json: { :success => true, :data => order }, :status => 201
     else
       raise ApiError.new(I18n.t("errors.msgs.unprocessable_entity"), 501)
@@ -78,15 +71,17 @@ class Api::V1::OrdersController < ApplicationController
     order = Order.find_by(id: params[:id])
 
     raise ApiError.new(I18n.t("errors.msgs.order_info_incomplete"), 422) if order.nil? || params[:order][:status].nil?
+    raise ApiError.new(I18n.t("errors.msgs.unable_to_update"), 401) if !can_update_order(order)
 
-    order_status = params[:order][:status].to_sym
+    order_status = params[:order][:status]
+    status_changed = false
 
-    if order.status != order_status
-      if order_status == :sent
-        order.sent_at = Time.now
-      elsif order_status == :recieved
-        order.recieved_at = Time.now
-      end
+    if order_status == "sent" && order.sent_at.nil?
+      order.sent_at = Time.now
+      status_changed = true
+    elsif order_status == "recieved" && order.recieved_at.nil?
+      order.recieved_at = Time.now
+      status_changed = true
     end
 
     params[:order].each do |key, value|
@@ -94,17 +89,18 @@ class Api::V1::OrdersController < ApplicationController
     end
 
     if order_status == :purchase
-      order_purchase(order)
+      order_purchase(order, order_status.to_sym)
     elsif order_status == :stock_transfer
-      order_stock_transfer(order)
+      order_stock_transfer(order, order_status.to_sym)
     elsif order_status == :installation
-      order_installation(order)
+      order_installation(order, order_status.to_sym)
     end
 
-    # if (order_status > 1 && order.sent_from_user_id == current_user.id) || (order.sent_to_user_id == current_user.id && order_status <= 1)
-    #   render json: { :success => false, :message => "You are not authorized!" }, :status => 401
-    #   return
-    # end
+    update_stocks_inventory(order) if status_changed
+
+    if ((order.status == "sent" || order.status == "recieved") && (order.order_type == "return") && (order.service_report_number.nil?))
+      raise ApiError.new(I18n.t("errors.msgs.return_order_update_not_possible"), 401)
+    end
 
     if order.save
       order = parse_order_response(order)
@@ -154,7 +150,7 @@ class Api::V1::OrdersController < ApplicationController
     return Order.column_names - col_names
   end
 
-  def fetch_orders or_columns, and_columns, show_columns, limit, offset
+  def fetch_orders or_columns, and_columns, show_columns, limit, offset, sort
     or_conditions = or_columns.map { |column, value| "#{column} = ?" }.join(" OR ")
     or_conditions = "(#{or_conditions})"
 
@@ -170,12 +166,12 @@ class Api::V1::OrdersController < ApplicationController
 
     values = or_columns.values + and_columns.values
 
-    Order.includes(:sent_from_user, :sent_to_user, :issued_to_warehouse).where(conditions, *values).select(show_columns).limit(limit).offset(offset * limit)
+    Order.order(created_at: sort).includes(:sent_from_user, :sent_to_user, :issued_to_warehouse).where(conditions, *values).select(show_columns).limit(limit).offset(offset * limit)
   end
 
-  def order_purchase(order)
+  def order_purchase(order, status = :created)
     order.sent_to_user_id = current_user.id
-    order.status = :created
+    order.status = status
     order.transfer_type = :in
     order.issued_to_warehouse_id = current_user.warehouse_id
     supplier_user = User.find_by(id: order.sent_from_user_id)
@@ -184,26 +180,30 @@ class Api::V1::OrdersController < ApplicationController
 
     raise ApiError.new(I18n.t("errors.msgs.warehouse_user_unset"), 422) if current_user.warehouse_id.nil?
 
-    order.sent_at = nil
-    order.recieved_at = nil    
+    if status == :created
+      order.sent_at = nil
+      order.recieved_at = nil
+    end
   end
 
-  def order_stock_transfer(order)
+  def order_stock_transfer(order, status = :created)
     order.sent_from_user_id = current_user.id
-    order.status = :created
+    order.status = status
     order.transfer_type = :out
 
     raise ApiError.new(I18n.t("errors.msgs.warehouse_unset")) if order.issued_to_warehouse_id.nil?
 
     raise ApiError.new(I18n.t("errors.msgs.warehouse_user_unset")) if current_user.warehouse_id.nil?
 
-    order.sent_at = nil
-    order.recieved_at = nil
+    if status == :created
+      order.sent_at = nil
+      order.recieved_at = nil  
+    end
   end
 
-  def order_installation(order)
+  def order_installation(order, status = :created)
     order.sent_from_user_id = current_user.id
-    order.status = :created
+    order.status = status
     order.transfer_type = :out
 
     site_engineer_user = User.find_by(id: order.sent_to_user_id)
@@ -212,8 +212,35 @@ class Api::V1::OrdersController < ApplicationController
 
     raise ApiError.new(I18n.t("errors.msgs.warehouse_user_unset")) if current_user.warehouse_id.nil?
 
-    order.sent_at = nil
-    order.recieved_at = nil    
+    if status == :created
+      order.sent_at = nil
+      order.recieved_at = nil  
+    end
+  end
+
+  def order_return(parent_order_id, status = :created)
+    raise ApiError.new(I18n.t("errors.msgs.not_found"), 404) if parent_order_id.nil?
+
+    order = Order.find_by(id: parent_order_id)
+
+    raise ApiError.new(I18n.t("errors.msgs.not_found"), 404) if order.nil?
+    raise ApiError.new(I18n.t("errors.msgs.return_order_invalid"), 404) if (order.order_type != "installation" && order.order_type != "amc" && order.order_type != "distribution_sale") || (order.sent_from_user.warehouse.nil?)
+
+    return_order = Order.new(order.attributes.except('id', 'created_at', 'updated_at', 'sent_at', 'updated_at'))
+    return_order.status = status
+    return_order.transfer_type = :in
+    return_order.parent_order_id = order.id
+    return_order.order_type = :return
+    return_order.sent_at = nil
+    return_order.recieved_at = nil
+
+    return_order.issued_to_warehouse_id = order.sent_from_user.warehouse.id
+
+    return_order.sent_from_user_id = order.sent_to_user.id
+    return_order.sent_to_user_id = order.sent_from_user.id
+
+    raise ApiError.new(I18n.t("errors.msgs.not_found"), 404) if !return_order.sent_from_user_id || !return_order.sent_to_user_id
+    return_order
   end
 
   def permit_params
@@ -224,6 +251,8 @@ class Api::V1::OrdersController < ApplicationController
     order_hash = order.as_json
 
     order_hash[:sent_from_user] = order.sent_from_user.as_json
+    order_hash[:child_order] = order.child
+
     if !order.sent_from_user.nil?
       order_hash[:sent_from_user][:warehouse] = order.sent_from_user.warehouse
       order_hash[:sent_from_user][:user_type] = order.sent_from_user.user_type.role
@@ -252,5 +281,58 @@ class Api::V1::OrdersController < ApplicationController
     end
 
     order_hash
+  end
+
+  def update_stocks_inventory(order)
+    # user = order.sent_to_user_id
+    warehouse = get_warehouse_for_order(order)
+    order_products = order.order_products
+
+    raise ApiError.new(I18n.t("errors.msgs.unable_to_update_stocks"), 401) if warehouse.nil? || order_products.nil?
+
+    if (order.order_type == "purchase" && order.status == "recieved") || 
+        (order.order_type == "installation" && order.status == "sent") || 
+        (order.order_type == "distribution_sale" && order.status == "sent") ||
+        (order.order_type == "complaint" && order.status == "sent") ||
+        (order.order_type == "amc" && order.status == "sent") ||
+        (order.order_type == "return" && order.status == "sent")
+      order_products.each do |order_product|
+        stock = Stock.find_or_create_by(warehouse_id: warehouse, product_id: order_product.product_id)
+
+        if order.transfer_type == "in"
+          stock.quantity += order_product.quantity
+        else
+          stock.quantity -= order_product.quantity
+        end
+
+        raise ApiError.new(I18n.t("errors.msgs.product_quanity_negative"), 401) if stock.quantity < 0
+
+        raise ApiError.new(I18n.t("errors.msgs.unable_to_update_stocks"), 401) if !stock.save
+      end
+    end
+  end
+
+  def get_warehouse_for_order(order)
+    warehouse_id = nil
+
+    if(order.order_type == "purchase")
+      warehouse_id = order.issued_to_warehouse_id
+    elsif(order.order_type == "installation")
+      warehouse_id = order.sent_from_user.warehouse.id if !order.sent_from_user.nil?
+    elsif(order.order_type == "return")
+      warehouse_id = order.sent_to_user.warehouse.id if !order.sent_to_user.nil?
+    end
+
+    return warehouse_id
+  end
+
+  def can_update_order(order)
+    if order.status == "recieved"
+      return false
+    elsif (order.status != "created") && order.order_type == "return"
+      return false
+    end
+
+    return true
   end
 end

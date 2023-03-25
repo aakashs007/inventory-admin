@@ -7,13 +7,15 @@ class Api::V1::StocksController < ApplicationController
 
     raise ApiError.new(I18n.t("errors.msgs.not_found"), 404) if user.nil?
 
-    stocks = Stock.includes(:warehouse).where(warehouse_id: user.warehouse.id)
+    stocks = Stock.includes(:warehouse, :product).where(warehouse_id: user.warehouse.id)
 
     response = stocks.map do |stock|
       stock_hash = stock.as_json
       stock_hash[:warehouse] = stock.warehouse
+      stock_hash[:product] = stock.product
 
       stock_hash.delete("warehouse_id")
+      stock_hash.delete("product_id")
 
       stock_hash
     end

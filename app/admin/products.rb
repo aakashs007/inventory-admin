@@ -1,6 +1,6 @@
 ActiveAdmin.register Product do
 
-  permit_params :name, :active, :slug, :price, :vat, :supplier_id
+  permit_params :name, :active, :slug, :price, :vat, :supplier_id, :unit
 
   index do
     selectable_column
@@ -11,6 +11,7 @@ ActiveAdmin.register Product do
     column :price
     column :vat
     column :supplier
+    column :unit
 
     column :created_at
     actions
@@ -28,6 +29,7 @@ ActiveAdmin.register Product do
       f.input :slug
       f.input :price
       f.input :vat
+      f.input :unit
       f.input :supplier_id, label: 'Supplier', as: 'select', collection: User.where(user_type_id: UserType.find_by(role: "supplier").id).map{|x| [x.email, x.id]}
     end
     f.actions
@@ -40,6 +42,7 @@ ActiveAdmin.register Product do
       row :slug
       row :price
       row :vat
+      row :unit
       row :supplier
       row :created_at
     end

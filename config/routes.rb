@@ -24,12 +24,14 @@ Rails.application.routes.draw do
       get "order_product", :to => "order_products#index"
       put "order_product/:id", :to => "order_products#update"
       delete "order_product/:id", :to => "order_products#destroy"
+      put "clone/order_product/:id", :to => "order_products#clone_parent_order_products"
 
       get "product", :to => "products#index"
 
       get "user", :to => "users#index"
 
       get "warehouse", :to => "warehouse#index"
+      get "my/warehouse", :to => "warehouse#user_warehouse"
 
       get "stock", :to => "stocks#index"
     end

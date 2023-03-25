@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2023_02_12_152911) do
+ActiveRecord::Schema[7.0].define(version: 2023_03_21_103614) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -47,7 +47,6 @@ ActiveRecord::Schema[7.0].define(version: 2023_02_12_152911) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "quantity"
-    t.float "unit"
     t.index ["order_id"], name: "index_order_products_on_order_id"
     t.index ["product_id"], name: "index_order_products_on_product_id"
   end
@@ -82,6 +81,7 @@ ActiveRecord::Schema[7.0].define(version: 2023_02_12_152911) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "supplier_id"
+    t.integer "unit"
   end
 
   create_table "stocks", force: :cascade do |t|
@@ -90,7 +90,6 @@ ActiveRecord::Schema[7.0].define(version: 2023_02_12_152911) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "warehouse_id", null: false
-    t.float "unit"
     t.index ["product_id"], name: "index_stocks_on_product_id"
     t.index ["warehouse_id"], name: "index_stocks_on_warehouse_id"
   end
