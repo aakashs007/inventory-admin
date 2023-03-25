@@ -88,3 +88,7 @@ gem 'rack-cors'
 gem 'active_admin_theme'
 
 gem 'i18n'
+
+group :production do
+  gem "pg"
+end
