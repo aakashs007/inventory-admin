@@ -16,8 +16,12 @@ Devise.setup do |config|
   # by default. You can change it below and use your own secret key.
   # config.secret_key = '92daf4a1618bdccc0144ba8286e74a407034bb9d0b379908b9dfa2c5334514fbbeb773ffaa1bad2dcac4c621aafedf15872f276e63595a22cdd05ad99b61651d'
   config.jwt do |jwt|
-    # jwt.secret = Rails.application.credentials.devise_jwt_secret!
-    jwt.secret = ENV['DEVISE_SECRET_KEY']
+    if(Rails.env.development?) 
+      jwt.secret = Rails.application.credentials.DEVISE_SECRET_KEY!
+    else
+      jwt.secret = ENV['DEVISE_SECRET_KEY']
+    end
+
     jwt.expiration_time = 15.day.to_i # for 1 month
     jwt.dispatch_requests = [
       ['POST', %r{^/sign_in$}]

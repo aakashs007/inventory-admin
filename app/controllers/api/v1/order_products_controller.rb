@@ -108,6 +108,8 @@ class Api::V1::OrderProductsController < ApplicationController
       raise ApiError.new(I18n.t("errors.msgs.return_order_product_create_failed"), 404) if !return_order_product.save
     end
 
+    return_order.reload
+
     response = get_current_order_products(return_order)
     raise ApiError.new(I18n.t("errors.msgs.not_found"), 404) if response.nil?
 

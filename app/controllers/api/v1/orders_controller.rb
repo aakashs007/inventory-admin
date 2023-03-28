@@ -50,7 +50,7 @@ class Api::V1::OrdersController < ApplicationController
       order_purchase(order)
     elsif order.order_type.to_sym == :stock_transfer # warehouse x ===> warehouse y
       order_stock_transfer(order)
-    elsif order.order_type.to_sym == :installation # warehouse ===> site engineer
+    elsif order.order_type.to_sym == :installation ||  order.order_type.to_sym == :distribution_sale || order.order_type.to_sym == :amc# warehouse ===> site engineer
       order_installation(order)
     elsif order.order_type.to_sym == :return # site engineer ===> warehouse
       order = order_return(params[:parent_order_id])
@@ -295,7 +295,8 @@ class Api::V1::OrdersController < ApplicationController
         (order.order_type == "distribution_sale" && order.status == "sent") ||
         (order.order_type == "complaint" && order.status == "sent") ||
         (order.order_type == "amc" && order.status == "sent") ||
-        (order.order_type == "return" && order.status == "sent")
+        (order.order_type == "return" && order.status == "sent") ||
+        (order.order_type == "stock_transfer" && order.status != "created")
       order_products.each do |order_product|
         stock = Stock.find_or_create_by(warehouse_id: warehouse, product_id: order_product.product_id)
 
@@ -317,10 +318,12 @@ class Api::V1::OrdersController < ApplicationController
 
     if(order.order_type == "purchase")
       warehouse_id = order.issued_to_warehouse_id
-    elsif(order.order_type == "installation")
+    elsif(order.order_type == "installation" || order.order_type == "distribution_sale" || order.order_type == "amc")
       warehouse_id = order.sent_from_user.warehouse.id if !order.sent_from_user.nil?
     elsif(order.order_type == "return")
       warehouse_id = order.sent_to_user.warehouse.id if !order.sent_to_user.nil?
+    elsif(order.order_type == "stock_transfer")
+      warehouse_id = current_user.warehouse.id
     end
 
     return warehouse_id
